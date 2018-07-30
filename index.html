@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<!--Import Google Icon Font-->
+	<link href="http://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+	<!--Import materialize.css-->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/css/materialize.min.css">
+
+	<!--Let browser know website is optimized for mobile-->
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<style>
+		.input-field input[type=text]:focus+label {
+			color: #ffffff;
+		}
+
+		#messages {
+			max-height: 600px;
+			min-height: 300px;
+			word-break: break-all;
+			overflow-y: scroll;
+			font-size: 18px;
+		}
+
+		#messages::-webkit-scrollbar {
+			display: none;
+		}
+
+		#msg_area {
+			height: 1rem;
+			min-height: 1rem;
+		}
+
+		.conn-user {
+			overflow: hidden;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+		}
+	</style>
+</head>
+
+<body>
+	<nav>
+		<div class="nav-wrapper">
+			<a href="#" id="myname" class="brand-logo center">CHAT</a>
+		</div>
+	</nav>
+	<!-- 设置nickname -->
+	<div id="nickname_box" class="row container" style="display: block;">
+		<div class="col s12 m12">
+			<div class="card red lighten-1">
+				<div class="card-content red lighten-3 white-text">
+					<span class="card-title red-text text-lighten-5">
+						Set A Nickname...
+					</span>
+					<form action="" id="nickname_form">
+						<div class="input-field">
+							<input id="nickname" type="text" class="invalid red-text text-lighten-5 center-align">
+							<label for="last_name" class="red-text text-lighten-4">nickname</label>
+						</div>
+						<div class="right-align">
+							<button class="btn waves-effect waves-light  red lighten-1" type="submit" name="action">Let's Chat
+								<i class="material-icons right">send</i>
+							</button>
+						</div>
+					</form>
+				</div>
+				<div class="card-action">
+				</div>
+			</div>
+		</div>
+	</div>
+	<!-- 发送消息 -->
+	<div id="message_box" class="row container" style="display: none;">
+		<!-- 在线用户 -->
+		<div class="col s2 m2">
+			<h3 class="flow-text center red-text text-lighten-1">
+				CONNECTED USER
+			</h3>
+			<div id="conn_user" class="card-panel red lighten-2 center-align">
+			</div>
+		</div>
+		<!-- 聊天框 -->
+		<div class="col s10 m10">
+			<div class="card red lighten-3">
+				<!-- <span class="card-title white-text">Title...</span> -->
+				<div id="messages" class="card-content red lighten-5 white-text">
+					<!-- messsage -->
+				</div>
+				<div class="card-action">
+					<form action="" id="message_form">
+						<div class="input-field">
+							<textarea id="msg_area" class="materialize-textarea invalid white-text text-lighten-1"></textarea>
+							<label for="msg_area" class="white-text text-lighten-1">Say Something...</label>
+						</div>
+						<div class="right-align">
+							<button class="btn waves-effect waves-light  red lighten-1" type="submit" name="action">SEND
+								<i class="material-icons right">send</i>
+							</button>
+						</div>
+					</form>
+				</div>
+			</div>
+		</div>
+	</div>
+	<!--Import jQuery before materialize.js-->
+	<script type="text/javascript" src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/0.97.8/js/materialize.min.js"></script>
+	<script src="https://cdn.bootcss.com/socket.io/2.1.1/socket.io.js"></script>
+	<script>
+		function Login(socket) {
+			socket.on("connect", function () {
+				console.log("连接成功");
+			});
+			$('#nickname_form').submit(function (event) {
+				event.preventDefault();
+				if (($('#nickname').val()).trim().length != 0) {
+					// alert($('#nickname').val());
+					$('#nickname_box').css('display', 'none');
+					$('#message_box').css('display', 'block');
+					socket.emit("login", {
+						nickname: ($('#nickname').val()).replace(/\s/g, "")
+					});
+					$('#myname').html(($('#nickname').val()).replace(/\s/g, ""));
+				} else {
+					$('#nickname').val('');
+					$('#nickname').attr('placeholder', '请输入昵称...').focus();
+				}
+			});
+		}
+
+		function Chat(socket) {
+			$('#message_form').submit(function (event) {
+				event.preventDefault();
+				if (($('#msg_area').val()).trim().length != 0) {
+					socket.emit("chat", {
+						chatmsg: ($('#msg_area').val()).trim()
+					});
+					$('#msg_area').val('').focus();
+					$('#msg_area').trigger('autoresize');
+					if (typeof ($('#messages p:last').offset()) != 'undefined') {
+						$("#messages").scrollTop($("#messages").scrollTop() + $('#messages p:last').offset().top - $("#messages").offset()
+							.top);
+						$("#messages").animate({
+							scrollTop: $("#messages").scrollTop() + $('#messages p:last').offset().top - $("#messages").offset().top
+						}, 1000);
+					}
+				} else {
+					$('#msg_area').val('');
+					$('#msg_area').trigger('autoresize');
+					$('#msg_area').attr('placeholder', '请输入信息...').focus();
+				}
+			});
+		}
+		(function () {
+			const socket = io("http://localhost:3000");
+			socket.on("loaduser", (users, inOut) => {
+				console.log("users:" + users);
+				$('#conn_user').html('');
+				users.forEach(user => {
+					$('#conn_user').append(`<h4 class="conn-user white-text">${user}</h4>`)
+				});
+				if (inOut.login) {
+					console.log(inOut.login + ":login");
+					let $toastContent = $(`<span>${inOut.login}-Login</span>`);
+					Materialize.toast($toastContent, 3000);
+				} else {
+					console.log(inOut.logout + ":logout");
+					let $toastContent = $(`<span>${inOut.logout}-Logout</span>`);
+					Materialize.toast($toastContent, 3000);
+				}
+			});
+			Login(socket);
+			Chat(socket);
+			socket.on("message", (msg) => {
+				console.log(msg);
+				let classStr = 'red-text text-darken-4';
+				if (msg.nickname == $('#myname').html()) {
+					classStr = 'blue-grey-text text-darken-4';
+				}
+				$('#messages').append(
+					`<p class="red-text text-lighten-1"><strong class="${classStr}">${msg.nickname}:</strong>${msg.msg}</p>`
+				);
+			});
+			socket.on("event", function (data) {});
+			socket.on("disconnect", function () {
+				console.log("掉线");
+				let $toastContent = $('<span>Disconnect</span>');
+				Materialize.toast($toastContent, 3000);
+			});
+			socket.on("reconnecting", () => {
+				console.log("重新连接...");
+				let $toastContent = $('<span>Reconnecting...</span>');
+				Materialize.toast($toastContent, 3000);
+			});
+		})()
+	</script>
+</body>
+
+</html>
